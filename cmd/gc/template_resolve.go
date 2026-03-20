@@ -239,8 +239,15 @@ func templateParamsToConfig(tp TemplateParams) runtime.Config {
 	if tp.Prompt != "" {
 		promptSuffix = shellquote.Quote(tp.Prompt)
 	}
+	var promptMode, promptFlag string
+	if tp.ResolvedProvider != nil {
+		promptMode = tp.ResolvedProvider.PromptMode
+		promptFlag = tp.ResolvedProvider.PromptFlag
+	}
 	return runtime.Config{
 		Command:                tp.Command,
+		PromptMode:             promptMode,
+		PromptFlag:             promptFlag,
 		PromptSuffix:           promptSuffix,
 		Env:                    tp.Env,
 		WorkDir:                tp.WorkDir,
