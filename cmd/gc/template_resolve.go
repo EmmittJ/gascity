@@ -244,6 +244,8 @@ func templateParamsToConfig(tp TemplateParams) runtime.Config {
 	return runtime.Config{
 		Command:                tp.Command,
 		PromptSuffix:           promptSuffix,
+		PromptMode:             tp.ResolvedProvider.PromptMode,
+		PromptFlag:             tp.ResolvedProvider.PromptFlag,
 		Env:                    tp.Env,
 		WorkDir:                tp.WorkDir,
 		ReadyPromptPrefix:      tp.Hints.ReadyPromptPrefix,
@@ -260,4 +262,16 @@ func templateParamsToConfig(tp TemplateParams) runtime.Config {
 		CopyFiles:              tp.Hints.CopyFiles,
 		FingerprintExtra:       tp.FPExtra,
 	}
+}
+
+// appendToPromptSuffix appends extra text to a shell-quoted PromptSuffix string.
+// The PromptSuffix is in shell-single-quote form (as produced by shellquote.Quote);
+// this function decodes it, appends the extra text, and re-encodes.
+func appendToPromptSuffix(suffix, extra string) string {
+raw := suffix
+if len(raw) >= 2 && raw[0] == '\'' && raw[len(raw)-1] == '\'' {
+raw = raw[1 : len(raw)-1]
+raw = strings.ReplaceAll(raw, `'\''`, `'`)
+}
+return shellquote.Quote(raw + "\n\n" + extra)
 }

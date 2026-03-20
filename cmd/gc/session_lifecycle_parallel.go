@@ -297,6 +297,23 @@ func prepareStartCandidate(
 		instanceToken,
 	))
 	agentCfg = runtime.SyncWorkDirEnv(agentCfg)
+	// Inject pending nudges into the prompt for Copilot sessions.
+	// Copilot CLI ignores sessionStart hook stdout; nudge content must
+	// be embedded in the --prompt file before spawning the agent.
+	if tp.ResolvedProvider != nil && tp.ResolvedProvider.Name == "copilot" {
+		if cityPath := agentCfg.Env["GC_CITY"]; cityPath != "" {
+			nt := nudgeTarget{
+				cityPath:          cityPath,
+				identity:          tp.InstanceName,
+				sessionID:         session.ID,
+				continuationEpoch: strconv.Itoa(continuationEpoch),
+				sessionName:       candidate.name(),
+			}
+			if injected := collectNudgesForPrompt(nt); injected != "" {
+				agentCfg.PromptSuffix = appendToPromptSuffix(agentCfg.PromptSuffix, injected)
+			}
+		}
+	}
 	return &preparedStart{
 		candidate: candidate,
 		cfg:       agentCfg,

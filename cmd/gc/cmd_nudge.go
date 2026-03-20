@@ -683,6 +683,47 @@ func maybeStartCodexNudgePoller(target nudgeTarget) {
 	}
 }
 
+// collectNudgesForPrompt claims any pending queued nudges for the given target
+// and returns the formatted text to embed in the agent's --prompt file.
+// Called from prepareStartCandidate for the Copilot provider, whose sessionStart
+// hook stdout is explicitly ignored by the CLI.
+func collectNudgesForPrompt(target nudgeTarget) string {
+	items, err := claimDueQueuedNudgesForTarget(target.cityPath, target, time.Now())
+	if err != nil || len(items) == 0 {
+		return ""
+	}
+	items, rejected := splitQueuedNudgesForTarget(target, items)
+	if len(rejected) > 0 {
+		_ = recordQueuedNudgeFailure(target.cityPath, queuedNudgeIDs(rejected), errNudgeSessionFenceMismatch, time.Now())
+	}
+	if len(items) == 0 {
+		return ""
+	}
+	out := formatNudgeInjectOutput(items)
+	_ = ackQueuedNudgesWithOutcome(target.cityPath, queuedNudgeIDs(items), "accepted_for_injection", "", "prompt-inject")
+	return out
+}
+
+// drainNudgesIntoPrime claims any pending queued nudges for the given target
+// and writes the formatted nudge content to stdout. This is called from
+// gc prime --hook for the Copilot provider; Copilot CLI ignores sessionStart
+// hook stdout, so nudges must be injected via the --prompt file instead.
+func drainNudgesIntoPrime(target nudgeTarget, stdout io.Writer) {
+	items, err := claimDueQueuedNudgesForTarget(target.cityPath, target, time.Now())
+	if err != nil || len(items) == 0 {
+		return
+	}
+	items, rejected := splitQueuedNudgesForTarget(target, items)
+	if len(rejected) > 0 {
+		_ = recordQueuedNudgeFailure(target.cityPath, queuedNudgeIDs(rejected), errNudgeSessionFenceMismatch, time.Now())
+	}
+	if len(items) == 0 {
+		return
+	}
+	_, _ = io.WriteString(stdout, formatNudgeInjectOutput(items))
+	_ = ackQueuedNudgesWithOutcome(target.cityPath, queuedNudgeIDs(items), "accepted_for_injection", "", "prime-inject")
+}
+
 func withNudgeTargetFence(store beads.Store, target nudgeTarget) nudgeTarget {
 	if target.sessionName == "" {
 		return target

@@ -134,7 +134,7 @@ func doPrimeWithMode(args []string, stdout, _ io.Writer, hookMode bool) int { //
 				if sessionName == "" {
 					sessionName = cliSessionName(cityPath, cityName, a.QualifiedName(), cfg.Workspace.SessionTemplate)
 				}
-				maybeStartCodexNudgePoller(withNudgeTargetFence(openNudgeBeadStore(cityPath), nudgeTarget{
+				nt := withNudgeTargetFence(openNudgeBeadStore(cityPath), nudgeTarget{
 					cityPath:          cityPath,
 					cityName:          cityName,
 					cfg:               cfg,
@@ -143,7 +143,13 @@ func doPrimeWithMode(args []string, stdout, _ io.Writer, hookMode bool) int { //
 					sessionID:         os.Getenv("GC_SESSION_ID"),
 					continuationEpoch: os.Getenv("GC_CONTINUATION_EPOCH"),
 					sessionName:       sessionName,
-				}))
+				})
+				maybeStartCodexNudgePoller(nt)
+				// Copilot CLI ignores sessionStart hook stdout, so drain pending
+				// nudges into prime output for injection via the --prompt file.
+				if resolved.Name == "copilot" {
+					drainNudgesIntoPrime(nt, stdout)
+				}
 			}
 		}
 		if ok && a.PromptTemplate != "" {
